@@ -51,6 +51,10 @@ func _ready() -> void:
 	# Ersten Spieler aktivieren
 	turn_phase = "roll"
 	_status("Spielfeld bereit. Spieler 1 würfelt!")
+	# Auto-Test-Modus (headless): `godot --headless -- --autotest`
+	if OS.get_cmdline_user_args().has("--autotest"):
+		print("[AUTOTEST] Starte Auto-Wurf")
+		_do_roll()
 
 
 func _setup_players() -> void:

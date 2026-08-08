@@ -71,7 +71,7 @@ func _hit_at(pos: Vector2) -> void:
 	for i in targets.size():
 		if targets[i].hit:
 			continue
-		var d := targets[i].pos.distance_to(pos)
+		var d: float = targets[i].pos.distance_to(pos)
 		if d < best_d:
 			best_d = d
 			best = i
