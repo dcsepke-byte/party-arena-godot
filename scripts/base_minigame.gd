@@ -1,5 +1,5 @@
 class_name BaseMinigame
-extends Node2D
+extends Control
 ## Basis für alle Minispiele. Jedes Spiel erbt hiervon, baut seine Szene in
 ## _build() und meldet sich mit finish(placements) fertig.
 ## placements = Array von PlayerData, sortiert 1. Platz zuerst.
@@ -15,8 +15,12 @@ var _running := false
 func setup(p_list: Array) -> void:
 	players = p_list
 	_time_left = timer_duration
+	# Vollbild-Control, im CanvasLayer zuverlässig gerendert
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
 	_running = true
+	queue_redraw()
 
 
 ## Baut die Minigame-Szene. Muss in jedem Spiel überschrieben werden.
