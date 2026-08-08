@@ -107,6 +107,38 @@ func _build_board_display() -> void:
 		name_l.add_theme_font_size_override("font_size", 20)
 		board_holder.add_child(name_l)
 
+	# Spielfiguren als farbige Kreise auf Feld 0 (Start)
+	player_markers.clear()
+	for p in logic.players:
+		var pawn := _make_pawn(p)
+		player_markers[p.id] = pawn
+		board_holder.add_child(pawn)
+		_position_pawn(p, 0)
+
+
+func _make_pawn(p: PlayerData) -> ColorRect:
+	var rect := ColorRect.new()
+	rect.size = Vector2(40, 40)
+	rect.color = p.color
+	rect.position = Vector2(0, 0)
+	return rect
+
+
+func _position_pawn(p: PlayerData, field_idx: int) -> void:
+	var pawn: ColorRect = player_markers.get(p.id)
+	if pawn == null:
+		return
+	# Feld-Zentrum = Feld-Position + 10 (Feld 60px, Pawn 40px)
+	var idx := field_idx % logic.BOARD_SIZE
+	var cols := 8
+	var col := idx % cols
+	var row := idx / cols
+	var x := 100.0 + col * 120.0
+	var y := 120.0 + row * 100.0
+	if row % 2 == 1:
+		x = 100.0 + (cols - 1 - col) * 120.0
+	pawn.position = Vector2(x + 10, y + 10)
+
 
 func _field_color(ftype: int) -> Color:
 	match ftype:
@@ -192,8 +224,8 @@ func _effect_text(result: Dictionary) -> String:
 
 
 func _move_pawn(p) -> void:
-	# Pawn-Marker auf das Feld setzen (simple Positionslogik)
-	pass
+	# Pawn-Marker auf das neue Feld setzen
+	_position_pawn(p, p.position)
 
 
 func _start_minigame() -> void:
@@ -218,6 +250,24 @@ func _trigger_reaction_signal(mg: Minigame) -> void:
 	if mg is ReactionMinigame:
 		mg.signal_shown()
 		_status("JETZT TIPPEN!")
+	# Reaktions-Spiel läuft automatisch: simuliere Reaktionen über 5s
+	await _simulate_reactions(mg)
+
+
+## Simuliert Reaktionen beider Spieler (vertikaler Slice) + schließt ab.
+func _simulate_reactions(mg: Minigame) -> void:
+	var t := 0.0
+	while t < 5.0 and active_minigame == mg:
+		for p in logic.players:
+			if not mg.reaction_times.has(p.id) and randf() < 0.3:
+				var rt := int(randf_range(300, 1200))
+				if mg is ReactionMinigame:
+					(mg as ReactionMinigame).test_set_reaction(p.id, rt)
+		t += 0.2
+		await get_tree().create_timer(0.2).timeout
+	if active_minigame == mg:
+		mg._finish_all()
+		_after_minigame()
 
 
 func _simulate_coin_minigame(mg: Minigame) -> void:
@@ -230,6 +280,62 @@ func _simulate_coin_minigame(mg: Minigame) -> void:
 		t += 0.5
 		await get_tree().create_timer(0.5).timeout
 	mg.tick(100.0)  # Zeit ablaufen lassen -> finish
+	_after_minigame()
+
+
+## Nach dem Minigame: Münzen verteilen + nächster Spieler / Runde.
+func _after_minigame() -> void:
+	# Platzierungen -> Münzen (1.=10, 2.=6, 3.=3, 4.=1, Rest=0)
+	if active_minigame and active_minigame.players.size() > 0:
+		var placements := _compute_placements()
+		var coin_rewards := [10, 6, 3, 1]
+		for i in placements.size():
+			var pid: int = placements[i]
+			var p := _player_by_id(pid)
+			if p:
+				var reward: int = coin_rewards[i] if i < coin_rewards.size() else 0
+				p.add_coins(reward)
+				if i == 0:
+					p.minigame_wins += 1
+	_status("Minispiel vorbei! Münzen verteilt.")
+	await get_tree().create_timer(0.8).timeout
+	_active_player_next()
+
+
+## Nächster Spieler (oder Runden-Ende -> Game Over).
+func _active_player_next() -> void:
+	logic.next_turn()
+	if logic.game_over:
+		turn_phase = "done"
+		_show_winner()
+		return
+	_update_status()
+	turn_phase = "roll"
+	_status("%s ist dran — Leertaste zum Würfeln." % logic.current_player().name)
+
+
+## Platzierungen aus dem Minigame (nach _finished + Scores).
+func _compute_placements() -> Array:
+	var res: Array = []
+	if active_minigame == null:
+		return res
+	res = active_minigame._finished.duplicate()
+	# Nicht-fertige nach Score sortiert anhängen
+	var rest: Array = []
+	for p in active_minigame.players:
+		if p.id not in res:
+			rest.append(p)
+	rest.sort_custom(func(a, b): return active_minigame.get_score(a.id) > active_minigame.get_score(b.id))
+	for p in rest:
+		res.append(p.id)
+	return res
+
+
+func _player_by_id(pid: int) -> PlayerData:
+	for p in logic.players:
+		if p.id == pid:
+			return p
+	return null
 
 
 func _try_buy_star() -> void:
