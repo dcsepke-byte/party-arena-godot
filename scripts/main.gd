@@ -27,6 +27,7 @@ var field_nodes: Array = []
 # Pixel-Art Basis
 var bg_rect: ColorRect
 var turn_phase := "roll"  # roll | move | minigame | star | done
+var _rolled_this_round := 0  # wie viele Spieler haben in dieser Runde gewürfelt
 
 # Spieler-Figuren als simple Kreise (Pixel-Basis; echte Sprites später von Danny)
 var pawn_color: Color
@@ -260,8 +261,14 @@ func _animate_move(p, dice) -> void:
 	_move_pawn(p)
 	_status("%s steht auf Feld %d — %s" % [p.name, p.position, _effect_text(result)])
 	await get_tree().create_timer(0.4).timeout
-	# Nach Bewegung: Minispiel (nur wenn nicht auf Shop, das Stern wählt)
-	_start_minigame()
+	# Minispiel erst, wenn ALLE Spieler gewürfelt haben.
+	_rolled_this_round += 1
+	if _rolled_this_round >= logic.players.size():
+		_rolled_this_round = 0
+		_start_minigame()
+	else:
+		# Noch nicht alle dran → nächster Spieler würfelt
+		_active_player_next()
 
 
 func _effect_text(result: Dictionary) -> String:
