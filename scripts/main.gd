@@ -85,15 +85,8 @@ func _build_ui() -> void:
 	action_button.offset_right = -24.0
 	action_button.offset_top = -56.0
 	action_button.offset_bottom = -8.0
+	action_button.pressed.connect(_handle_space)
 	layer.add_child(action_button)
-
-	# Unsichtbarer Vollbild-Touch-Catcher (oberste Ebene) — fängt JEDEN Tap,
-	# damit Touch auf Mobile-Web zuverlässig funktioniert.
-	var touch_catcher := Control.new()
-	touch_catcher.set_anchors_preset(Control.PRESET_FULL_RECT)
-	touch_catcher.mouse_filter = Control.MOUSE_FILTER_STOP
-	touch_catcher.gui_input.connect(_on_touch_input)
-	layer.add_child(touch_catcher)
 
 
 func _make_label(p: int, pos: Vector2, size: Vector2) -> Label:
@@ -193,28 +186,24 @@ func _status(msg: String) -> void:
 	dice_label.text = msg
 
 
-func _unhandled_input(event: InputEvent) -> void:
+## Fängt ALLE Input-Events (inkl. Touch), bevor sie konsumiert werden.
+func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_SPACE:
 			_handle_space()
 		elif event.keycode == KEY_ESCAPE:
 			get_tree().quit()
+	# Touch auf Mobile-Web: Tap irgendwo würfelt
 	elif event is InputEventScreenTouch and event.pressed:
-		# Touch-Steuerung: Tap irgendwo aufs Spielfeld würfelt
+		_handle_space()
+	# Klick (Desktop / Test)
+	elif event is InputEventMouseButton and event.pressed:
 		_handle_space()
 
 
 func _set_button_text(txt: String) -> void:
 	if action_button:
 		action_button.text = txt
-
-
-## Fängt jeden Tap/Mausklick auf dem Vollbild-Catcher (Mobile-Web zuverlässig).
-func _on_touch_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		_handle_space()
-	elif event is InputEventScreenTouch and event.pressed:
-		_handle_space()
 
 
 func _handle_space() -> void:
