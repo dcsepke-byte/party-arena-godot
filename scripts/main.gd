@@ -220,7 +220,7 @@ func _handle_space() -> void:
 		"roll":
 			_do_roll()
 		"minigame":
-			pass  # Minigame läuft autonom
+			pass  # Minigame läuft autonom, Taps werden ignoriert
 		"star":
 			_try_buy_star()
 		"done":
@@ -228,14 +228,14 @@ func _handle_space() -> void:
 
 
 func _do_roll() -> void:
+	# Sofort blockieren: verhindert parallele Würfe, solange await-Kette läuft.
+	turn_phase = "minigame"
 	var p := logic.current_player()
 	var dice := logic.roll_dice(p)
 	_set_button_text("🎲 Würfelt…")
 	_status("%s würfelt: %d" % [p.name, dice])
-	# Mini-Animation: Feld-Marker bewegen
-	await get_tree().create_timer(0.5).timeout
+	await get_tree().create_timer(0.2).timeout
 	_animate_move(p, dice)
-	turn_phase = "minigame"
 
 
 func _animate_move(p, dice) -> void:
@@ -244,7 +244,7 @@ func _animate_move(p, dice) -> void:
 	_update_status()
 	_move_pawn(p)
 	_status("%s steht auf Feld %d — %s" % [p.name, p.position, _effect_text(result)])
-	await get_tree().create_timer(0.8).timeout
+	await get_tree().create_timer(0.4).timeout
 	# Nach Bewegung: Minispiel (nur wenn nicht auf Shop, das Stern wählt)
 	_start_minigame()
 
