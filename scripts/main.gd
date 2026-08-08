@@ -49,14 +49,20 @@ func _setup_players() -> void:
 
 
 func _build_ui() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-
-	# Hintergrund (dunkel, Pixel-Basis)
+	# Hintergrund ZUERST als Root-Kind (Layer 0) — damit er HINTER dem
+	# Spielfeld liegt (board_holder wird in _build_board_display danach hinzugefügt).
+	# WICHTIG: NICHT aufs CanvasLayer legen, sonst verdeckt der Hintergrund das Board.
 	bg_rect = ColorRect.new()
 	bg_rect.color = Color("#1a1a2e")
+	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE  # nie Klicks blockieren
 	bg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(bg_rect)
+	bg_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg_rect.size = Vector2(1920, 1080)
+	bg_rect.position = Vector2(-1000, -600)
+	add_child(bg_rect)
+
+	var layer := CanvasLayer.new()
+	add_child(layer)
 
 	# Status (oben)
 	status_label = _make_label(20, Vector2(16, 16), Vector2(1200, 44))
