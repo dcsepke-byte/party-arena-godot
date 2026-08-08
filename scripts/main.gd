@@ -18,6 +18,7 @@ var active_minigame: Minigame = null
 # UI-Referenzen
 var status_label: Label
 var dice_label: Label
+var action_button: Button
 var board_holder: Node2D
 var player_markers: Dictionary = {}  # player_id -> Sprite
 var field_nodes: Array = []
@@ -57,15 +58,35 @@ func _build_ui() -> void:
 	bg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(bg_rect)
 
-	# Status
-	status_label = _make_label(20, Vector2(20, 20), Vector2(900, 40))
-	status_label.add_theme_font_size_override("font_size", 24)
+	# Status (oben)
+	status_label = _make_label(20, Vector2(16, 16), Vector2(1200, 44))
+	status_label.add_theme_font_size_override("font_size", 22)
+	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	layer.add_child(status_label)
 
-	# Würfel-Anzeige
-	dice_label = _make_label(20, Vector2(20, 560), Vector2(900, 40))
-	dice_label.add_theme_font_size_override("font_size", 32)
+	# Würfel-Anzeige (mittig über dem Button)
+	dice_label = _make_label(20, Vector2(16, 0), Vector2(1200, 60))
+	dice_label.add_theme_font_size_override("font_size", 26)
+	dice_label.anchor_top = 1.0
+	dice_label.anchor_bottom = 1.0
+	dice_label.offset_top = -120.0
+	dice_label.offset_bottom = -60.0
 	layer.add_child(dice_label)
+
+	# Großer Touch-Button (unten, mobil-tauglich)
+	action_button = Button.new()
+	action_button.text = "🎲 WÜRFELN"
+	action_button.add_theme_font_size_override("font_size", 32)
+	action_button.anchor_left = 0.0
+	action_button.anchor_right = 1.0
+	action_button.anchor_top = 1.0
+	action_button.anchor_bottom = 1.0
+	action_button.offset_left = 24.0
+	action_button.offset_right = -24.0
+	action_button.offset_top = -56.0
+	action_button.offset_bottom = -8.0
+	action_button.pressed.connect(_handle_space)
+	layer.add_child(action_button)
 
 
 func _make_label(p: int, pos: Vector2, size: Vector2) -> Label:
@@ -171,6 +192,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_handle_space()
 		elif event.keycode == KEY_ESCAPE:
 			get_tree().quit()
+	elif event is InputEventScreenTouch and event.pressed:
+		# Touch-Steuerung: Tap irgendwo aufs Spielfeld würfelt
+		_handle_space()
+
+
+func _set_button_text(txt: String) -> void:
+	if action_button:
+		action_button.text = txt
 
 
 func _handle_space() -> void:
@@ -188,6 +217,7 @@ func _handle_space() -> void:
 func _do_roll() -> void:
 	var p := logic.current_player()
 	var dice := logic.roll_dice(p)
+	_set_button_text("🎲 Würfelt…")
 	_status("%s würfelt: %d" % [p.name, dice])
 	# Mini-Animation: Feld-Marker bewegen
 	await get_tree().create_timer(0.5).timeout
@@ -307,11 +337,13 @@ func _active_player_next() -> void:
 	logic.next_turn()
 	if logic.game_over:
 		turn_phase = "done"
+		_set_button_text("🏆 Ergebnis")
 		_show_winner()
 		return
 	_update_status()
 	turn_phase = "roll"
-	_status("%s ist dran — Leertaste zum Würfeln." % logic.current_player().name)
+	_set_button_text("🎲 WÜRFELN")
+	_status("%s ist dran — würfle!" % logic.current_player().name)
 
 
 ## Platzierungen aus dem Minigame (nach _finished + Scores).
