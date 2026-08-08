@@ -3,8 +3,7 @@ extends Node2D
 
 const BoardLogicScript := preload("res://scripts/board_logic.gd")
 const PlayerDataScript := preload("res://scripts/player_data.gd")
-const ReactionMinigameScript := preload("res://minigames/reaction_minigame.gd")
-const CoinMinigameScript := preload("res://minigames/coin_minigame.gd")
+const MinigameRunnerScript := preload("res://scripts/minigame_runner.gd")
 
 const PLAYER_COLORS := [
 	Color("#ff6a00"), Color("#00f0ff"), Color("#ffd34e"),
@@ -13,7 +12,9 @@ const PLAYER_COLORS := [
 ]
 
 var logic: BoardLogicScript
-var active_minigame: Minigame = null
+var active_minigame: BaseMinigame = null
+var minigame_runner: Node = null
+var _mg_layer: CanvasLayer = null
 
 # UI-Referenzen
 var status_label: Label
@@ -36,6 +37,16 @@ func _ready() -> void:
 	_setup_players()
 	_build_ui()
 	_build_board_display()
+	# Minigame-Runner auf eigenem Layer (über dem Board)
+	_mg_layer = CanvasLayer.new()
+	_mg_layer.layer = 10
+	add_child(_mg_layer)
+	minigame_runner = MinigameRunnerScript.new()
+	minigame_runner.setup(logic.players, _mg_layer)
+	minigame_runner.minigame_done.connect(_on_minigame_done)
+	_mg_layer.add_child(minigame_runner)
+	# Minigame-Layer initial ausblenden
+	_mg_layer.visible = false
 	_update_status()
 	# Ersten Spieler aktivieren
 	turn_phase = "roll"
@@ -272,78 +283,18 @@ func _move_pawn(p) -> void:
 
 
 func _start_minigame() -> void:
-	var current := logic.current_player()
-	# Wähle zufällig Geschick (Münzen) oder Reaktion
-	if randi_range(0, 1) == 0:
-		active_minigame = ReactionMinigameScript.new()
-		active_minigame.start_game(logic.players)
-		_status("REAKTIONS-SPIEL: Warte auf das Signal, dann schnell tippen!")
-		# Signal nach zufälliger Zeit
-		_trigger_reaction_signal(active_minigame)
-	else:
-		active_minigame = CoinMinigameScript.new()
-		active_minigame.start_game(logic.players)
-		_status("MÜNZ-SPIEL: Sammle Münzen! (Space für Spieler %s)" % current.name)
-		# Auto-Sim: Jeder Spieler sammelt zufällige Münzen über die Zeit
-		_simulate_coin_minigame(active_minigame)
+	# Echte Minispiele über den Runner starten (statt Text-Simulation)
+	_mg_layer.visible = true
+	_set_button_text("🎮 Minispiel…")
+	_status("Minispiel läuft…")
+	minigame_runner.start_random()
 
 
-func _trigger_reaction_signal(mg: Minigame) -> void:
-	await get_tree().create_timer(randf_range(1.0, 2.5)).timeout
-	if mg is ReactionMinigame:
-		mg.signal_shown()
-		_status("JETZT TIPPEN!")
-	# Reaktions-Spiel läuft automatisch: simuliere Reaktionen über 5s
-	await _simulate_reactions(mg)
-
-
-## Simuliert Reaktionen beider Spieler (vertikaler Slice) + schließt ab.
-## Kurz gehalten (~2s), damit der Spiel-Fluss schnell weitergeht.
-func _simulate_reactions(mg: Minigame) -> void:
-	var t := 0.0
-	while t < 2.0 and active_minigame == mg:
-		for p in logic.players:
-			if not mg.reaction_times.has(p.id) and randf() < 0.4:
-				var rt := int(randf_range(300, 1200))
-				if mg is ReactionMinigame:
-					(mg as ReactionMinigame).test_set_reaction(p.id, rt)
-		t += 0.15
-		await get_tree().create_timer(0.15).timeout
-	if active_minigame == mg:
-		mg._finish_all()
-		_after_minigame()
-
-
-func _simulate_coin_minigame(mg: Minigame) -> void:
-	# Kurze Simulation (~2s), damit der Spiel-Fluss schnell weitergeht.
-	var t := 0.0
-	while t < 2.0 and active_minigame == mg:
-		for p in logic.players:
-			if randf() < 0.4:
-				mg.add_coin(p.id)
-		t += 0.15
-		await get_tree().create_timer(0.15).timeout
-	if active_minigame == mg:
-		mg.tick(100.0)  # Zeit ablaufen lassen -> finish
-		_after_minigame()
-
-
-## Nach dem Minigame: Münzen verteilen + nächster Spieler / Runde.
-func _after_minigame() -> void:
-	# Platzierungen -> Münzen (1.=10, 2.=6, 3.=3, 4.=1, Rest=0)
-	if active_minigame and active_minigame.players.size() > 0:
-		var placements := _compute_placements()
-		var coin_rewards := [10, 6, 3, 1]
-		for i in placements.size():
-			var pid: int = placements[i]
-			var p := _player_by_id(pid)
-			if p:
-				var reward: int = coin_rewards[i] if i < coin_rewards.size() else 0
-				p.add_coins(reward)
-				if i == 0:
-					p.minigame_wins += 1
+## Runner fertig → Münzen schon verteilt, weiter zum nächsten Spieler.
+func _on_minigame_done(_rewards: Dictionary) -> void:
+	_mg_layer.visible = false
 	_status("Minispiel vorbei! Münzen verteilt.")
-	await get_tree().create_timer(0.8).timeout
+	await get_tree().create_timer(0.6).timeout
 	_active_player_next()
 
 
@@ -359,23 +310,6 @@ func _active_player_next() -> void:
 	turn_phase = "roll"
 	_set_button_text("🎲 WÜRFELN")
 	_status("%s ist dran — würfle!" % logic.current_player().name)
-
-
-## Platzierungen aus dem Minigame (nach _finished + Scores).
-func _compute_placements() -> Array:
-	var res: Array = []
-	if active_minigame == null:
-		return res
-	res = active_minigame._finished.duplicate()
-	# Nicht-fertige nach Score sortiert anhängen
-	var rest: Array = []
-	for p in active_minigame.players:
-		if p.id not in res:
-			rest.append(p)
-	rest.sort_custom(func(a, b): return active_minigame.get_score(a.id) > active_minigame.get_score(b.id))
-	for p in rest:
-		res.append(p.id)
-	return res
 
 
 func _player_by_id(pid: int) -> PlayerData:
@@ -398,9 +332,3 @@ func _show_winner() -> void:
 	var w := logic.winner()
 	_status("🏆 %s gewinnt mit %d Sternen!" % [w.name, w.stars])
 	turn_phase = "done"
-
-
-## Von Reaktion-Minigame: Spieler-Space-Tap als Reaktion
-func _react(player_id: int) -> void:
-	if active_minigame is ReactionMinigame:
-		(active_minigame as ReactionMinigame).react(player_id)
