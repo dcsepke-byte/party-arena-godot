@@ -4,6 +4,10 @@ extends Node2D
 const BoardLogicScript := preload("res://scripts/board_logic.gd")
 const PlayerDataScript := preload("res://scripts/player_data.gd")
 const MinigameRunnerScript := preload("res://scripts/minigame_runner.gd")
+const FlyingDiceScript := preload("res://scripts/flying_dice.gd")
+const ShopPopupScript := preload("res://scripts/shop_popup.gd")
+const BackpackUIScript := preload("res://scripts/backpack_ui.gd")
+const EffectSystemScript := preload("res://scripts/effect_system.gd")
 
 const PLAYER_COLORS := [
 	Color("#ff6a00"), Color("#00f0ff"), Color("#ffd34e"),
@@ -15,6 +19,11 @@ var logic: BoardLogicScript
 var active_minigame: BaseMinigame = null
 var minigame_runner: Node = null
 var _mg_layer: CanvasLayer = null
+var flying_dice: Node2D = null
+var shop_popup: Control = null
+var backpack_ui: Control = null
+var effects: Node = null
+var _ui_layer: CanvasLayer = null
 
 # UI-Referenzen
 var status_label: Label
@@ -48,6 +57,28 @@ func _ready() -> void:
 	_mg_layer.add_child(minigame_runner)
 	# Minigame-Layer initial ausblenden
 	_mg_layer.visible = false
+	# Effekt-System (Screen-Shake aufs Board)
+	effects = EffectSystemScript.new()
+	effects.setup(board_holder)
+	add_child(effects)
+	# Fliegender Würfel (über dem Board)
+	flying_dice = FlyingDiceScript.new()
+	flying_dice.z_index = 40
+	add_child(flying_dice)
+	# UI-Layer für Popups (Shop, Rucksack)
+	_ui_layer = CanvasLayer.new()
+	_ui_layer.layer = 20
+	add_child(_ui_layer)
+	shop_popup = ShopPopupScript.new()
+	shop_popup.visible = false
+	shop_popup.buy.connect(_on_shop_buy)
+	shop_popup.closed.connect(func(): shop_popup.visible = false)
+	_ui_layer.add_child(shop_popup)
+	backpack_ui = BackpackUIScript.new()
+	backpack_ui.visible = false
+	backpack_ui.use_item.connect(_on_use_item)
+	backpack_ui.closed.connect(func(): backpack_ui.visible = false)
+	_ui_layer.add_child(backpack_ui)
 	_update_status()
 	# Ersten Spieler aktivieren
 	turn_phase = "roll"
@@ -111,6 +142,21 @@ func _build_ui() -> void:
 	# GUI zu _input() durchkommen (ein STOP-Button würde alle Taps schlucken).
 	action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(action_button)
+
+	# Rucksack-Button (oben rechts)
+	var backpack_btn := Button.new()
+	backpack_btn.text = "🎒"
+	backpack_btn.add_theme_font_size_override("font_size", 30)
+	backpack_btn.anchor_left = 1.0
+	backpack_btn.anchor_right = 1.0
+	backpack_btn.anchor_top = 0.0
+	backpack_btn.anchor_bottom = 0.0
+	backpack_btn.offset_left = -70.0
+	backpack_btn.offset_right = -16.0
+	backpack_btn.offset_top = 16.0
+	backpack_btn.offset_bottom = 66.0
+	backpack_btn.pressed.connect(_open_backpack)
+	layer.add_child(backpack_btn)
 
 
 func _make_label(p: int, pos: Vector2, size: Vector2) -> Label:
@@ -231,6 +277,12 @@ func _set_button_text(txt: String) -> void:
 		action_button.text = txt
 
 
+func _open_backpack() -> void:
+	var p := logic.current_player()
+	if p:
+		backpack_ui.open(p)
+
+
 func _handle_space() -> void:
 	match turn_phase:
 		"roll":
@@ -250,6 +302,11 @@ func _do_roll() -> void:
 	var dice := logic.roll_dice(p)
 	_set_button_text("🎲 Würfelt…")
 	_status("%s würfelt: %d" % [p.name, dice])
+	# Fliegender Würfel über dem Spielfeld
+	var from := _pawn_pos(p)
+	var to := from + Vector2(0, -80)
+	flying_dice.start(from, to, dice)
+	await flying_dice.landed
 	await get_tree().create_timer(0.2).timeout
 	_animate_move(p, dice)
 
@@ -260,6 +317,18 @@ func _animate_move(p, dice) -> void:
 	_update_status()
 	_move_pawn(p)
 	_status("%s steht auf Feld %d — %s" % [p.name, p.position, _effect_text(result)])
+	# Effekte bei Feld-Effekten
+	if result.coins > 0:
+		effects.coin_burst(_pawn_pos(p))
+	elif result.coins < 0:
+		effects.shake(6.0)
+	# Shop-Feld: Popup öffnen
+	if result.type == BoardLogic.FieldType.STAR_SHOP:
+		shop_popup.open(p, true)
+		await shop_popup.closed
+	elif result.type == BoardLogic.FieldType.ITEM_SHOP:
+		shop_popup.open(p, false)
+		await shop_popup.closed
 	await get_tree().create_timer(0.4).timeout
 	# Minispiel erst, wenn ALLE Spieler gewürfelt haben.
 	_rolled_this_round += 1
@@ -291,6 +360,13 @@ func _effect_text(result: Dictionary) -> String:
 func _move_pawn(p) -> void:
 	# Pawn-Marker auf das neue Feld setzen
 	_position_pawn(p, p.position)
+
+
+func _pawn_pos(p) -> Vector2:
+	var pawn: ColorRect = player_markers.get(p.id)
+	if pawn:
+		return pawn.position + Vector2(20, 20)
+	return Vector2(100, 120)
 
 
 func _start_minigame() -> void:
@@ -343,3 +419,51 @@ func _show_winner() -> void:
 	var w := logic.winner()
 	_status("🏆 %s gewinnt mit %d Sternen!" % [w.name, w.stars])
 	turn_phase = "done"
+
+
+## Shop-Kauf (Stern oder Item).
+func _on_shop_buy(item_id: String) -> void:
+	var p := logic.current_player()
+	if item_id == "star":
+		var result := logic.buy_star(p)
+		_status(result.message)
+		if result.ok:
+			effects.confetti(_pawn_pos(p))
+		shop_popup.update_coins()
+	else:
+		var price: int = ShopPopupScript.ITEMS[item_id]["price"]
+		if p.coins >= price:
+			p.add_coins(-price)
+			p.items.append(item_id)
+			_status("%s kauft %s!" % [p.name, ShopPopupScript.ITEMS[item_id]["name"]])
+			shop_popup.update_coins()
+		else:
+			_status("Nicht genug Münzen!")
+
+
+## Item aus dem Rucksack benutzen.
+func _on_use_item(item_id: String) -> void:
+	var p := logic.current_player()
+	match item_id:
+		"lucky_dice":
+			# Nächster Wurf 1-10
+			_status("%s nutzt Glücks-Würfel! Nächster Wurf 1-10." % p.name)
+		"star_teleport":
+			p.position = logic.star_position
+			_move_pawn(p)
+			_status("%s teleportiert zum Stern!" % p.name)
+		"shield":
+			_status("%s aktiviert Schutzschild!" % p.name)
+		"coin_magnet":
+			p.add_coins(5)
+			effects.coin_burst(_pawn_pos(p))
+			_status("%s nutzt Münz-Magnet! +5 Münzen." % p.name)
+		"thief_glove":
+			var target := logic._richest_other(p)
+			if target:
+				target.add_coins(-5)
+				p.add_coins(5)
+				_status("%s stiehlt 5 Münzen von %s!" % [p.name, target.name])
+	p.use_item(item_id)
+	backpack_ui.visible = false
+	_update_status()
