@@ -91,8 +91,9 @@ func _build_ui() -> void:
 	action_button.offset_right = -24.0
 	action_button.offset_top = -56.0
 	action_button.offset_bottom = -8.0
-	# Button ist rein visuell — Input wird einheitlich über _input() verarbeitet,
-	# um Doppel-Feuer (Button.pressed + _input) zu vermeiden.
+	# Button ist rein visuell. MOUSE_FILTER_IGNORE, damit Klicks/Taps durchs
+	# GUI zu _input() durchkommen (ein STOP-Button würde alle Taps schlucken).
+	action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(action_button)
 
 
@@ -101,6 +102,7 @@ func _make_label(p: int, pos: Vector2, size: Vector2) -> Label:
 	l.position = pos
 	l.size = size
 	l.text = ""
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
 
