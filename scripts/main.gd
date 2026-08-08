@@ -85,7 +85,8 @@ func _build_ui() -> void:
 	action_button.offset_right = -24.0
 	action_button.offset_top = -56.0
 	action_button.offset_bottom = -8.0
-	action_button.pressed.connect(_handle_space)
+	# Button ist rein visuell — Input wird einheitlich über _input() verarbeitet,
+	# um Doppel-Feuer (Button.pressed + _input) zu vermeiden.
 	layer.add_child(action_button)
 
 
