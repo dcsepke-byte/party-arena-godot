@@ -1,0 +1,8 @@
+{
+  "parent": {"database_id": "3a337b21-9b91-813f-a116-f62d656dbc9b"},
+  "properties": {
+    "Aufgabe": {"title": [{"text": {"content": "Party Arena: Godot 4 Neubau weiterführen (Sprites, Karte, Multiplayer)"}}]},
+    "Status": {"status": {"name": "In Arbeit"}},
+    "Projekt": {"select": {"name": "Party Arena"}}
+  }
+}
