@@ -65,32 +65,32 @@ func _build_ui() -> void:
 	add_child(layer)
 
 	# Status (oben)
-	status_label = _make_label(20, Vector2(16, 16), Vector2(1200, 44))
-	status_label.add_theme_font_size_override("font_size", 22)
+	status_label = _make_label(20, Vector2(16, 16), Vector2(1200, 60))
+	status_label.add_theme_font_size_override("font_size", 30)
 	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	layer.add_child(status_label)
 
-	# Würfel-Anzeige (mittig über dem Button)
-	dice_label = _make_label(20, Vector2(16, 0), Vector2(1200, 60))
-	dice_label.add_theme_font_size_override("font_size", 26)
+	# Würfel-Anzeige (mittig, groß)
+	dice_label = _make_label(20, Vector2(16, 0), Vector2(1200, 120))
+	dice_label.add_theme_font_size_override("font_size", 34)
 	dice_label.anchor_top = 1.0
 	dice_label.anchor_bottom = 1.0
-	dice_label.offset_top = -120.0
+	dice_label.offset_top = -180.0
 	dice_label.offset_bottom = -60.0
 	layer.add_child(dice_label)
 
-	# Großer Touch-Button (unten, mobil-tauglich)
+	# Großer Touch-Button (unten, groß & gut tappbar)
 	action_button = Button.new()
 	action_button.text = "🎲 WÜRFELN"
-	action_button.add_theme_font_size_override("font_size", 32)
+	action_button.add_theme_font_size_override("font_size", 44)
 	action_button.anchor_left = 0.0
 	action_button.anchor_right = 1.0
 	action_button.anchor_top = 1.0
 	action_button.anchor_bottom = 1.0
-	action_button.offset_left = 24.0
-	action_button.offset_right = -24.0
-	action_button.offset_top = -56.0
-	action_button.offset_bottom = -8.0
+	action_button.offset_left = 16.0
+	action_button.offset_right = -16.0
+	action_button.offset_top = -100.0
+	action_button.offset_bottom = -16.0
 	# Button ist rein visuell. MOUSE_FILTER_IGNORE, damit Klicks/Taps durchs
 	# GUI zu _input() durchkommen (ein STOP-Button würde alle Taps schlucken).
 	action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -298,32 +298,34 @@ func _trigger_reaction_signal(mg: Minigame) -> void:
 
 
 ## Simuliert Reaktionen beider Spieler (vertikaler Slice) + schließt ab.
+## Kurz gehalten (~2s), damit der Spiel-Fluss schnell weitergeht.
 func _simulate_reactions(mg: Minigame) -> void:
 	var t := 0.0
-	while t < 5.0 and active_minigame == mg:
+	while t < 2.0 and active_minigame == mg:
 		for p in logic.players:
-			if not mg.reaction_times.has(p.id) and randf() < 0.3:
+			if not mg.reaction_times.has(p.id) and randf() < 0.4:
 				var rt := int(randf_range(300, 1200))
 				if mg is ReactionMinigame:
 					(mg as ReactionMinigame).test_set_reaction(p.id, rt)
-		t += 0.2
-		await get_tree().create_timer(0.2).timeout
+		t += 0.15
+		await get_tree().create_timer(0.15).timeout
 	if active_minigame == mg:
 		mg._finish_all()
 		_after_minigame()
 
 
 func _simulate_coin_minigame(mg: Minigame) -> void:
-	# Simulation für vertikalen Slice: 30 Sekunden Münzen sammeln
+	# Kurze Simulation (~2s), damit der Spiel-Fluss schnell weitergeht.
 	var t := 0.0
-	while t < 30.0 and active_minigame == mg:
+	while t < 2.0 and active_minigame == mg:
 		for p in logic.players:
-			if randf() < 0.3:
+			if randf() < 0.4:
 				mg.add_coin(p.id)
-		t += 0.5
-		await get_tree().create_timer(0.5).timeout
-	mg.tick(100.0)  # Zeit ablaufen lassen -> finish
-	_after_minigame()
+		t += 0.15
+		await get_tree().create_timer(0.15).timeout
+	if active_minigame == mg:
+		mg.tick(100.0)  # Zeit ablaufen lassen -> finish
+		_after_minigame()
 
 
 ## Nach dem Minigame: Münzen verteilen + nächster Spieler / Runde.
