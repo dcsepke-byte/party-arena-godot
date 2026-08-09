@@ -23,8 +23,7 @@ func _next_round() -> void:
 	waiting = true
 	green = false
 	queue_redraw()
-	# Zufällige Wartezeit (1-3s)
-	var wait := randf_range(1.0, 3.0)
+	var wait: float = randf_range(1.0, 3.0)
 	await get_tree().create_timer(wait).timeout
 	if not _running:
 		return
@@ -36,7 +35,7 @@ func _next_round() -> void:
 
 func on_tap(player: PlayerData) -> void:
 	if green:
-		var elapsed := Time.get_ticks_msec() - signal_time
+		var elapsed: int = Time.get_ticks_msec() - signal_time
 		if elapsed < best_time:
 			best_time = elapsed
 		rounds_done += 1

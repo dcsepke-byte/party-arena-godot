@@ -40,8 +40,7 @@ func _process(delta: float) -> void:
 
 func on_tap(player: PlayerData) -> void:
 	var top := stack[stack.size() - 1]
-	# Deviations-Berechnung: aktuelle Position vs. Top-Block
-	var new_w := top.width - abs(current_x - top.x_center)
+	var new_w: float = top.width - abs(current_x - top.x_center)
 	if new_w <= 5:
 		# Verpasst — Spiel vorbei
 		_running = false

@@ -1,4 +1,4 @@
-// E2E: prüft Minigame erst nach allen Würfen (2 Spieler).
+// E2E: prüft fliegenden Würfel + Shop/Rucksack-Button.
 const { chromium } = require('playwright');
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: '/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell', args: ['--no-sandbox','--disable-gpu','--use-gl=swiftshader','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--max_old_space_size=512'] });
@@ -8,17 +8,15 @@ const { chromium } = require('playwright');
   page.on('pageerror', e => errs.push(e.message));
   await page.goto('https://dcsepke-byte.github.io/party-arena-godot/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(9000);
+  await page.screenshot({ path: '/opt/data/feat_board.png' });
   const c = await page.$('canvas');
   const box = await c.boundingBox();
-  const cx = box.x + box.width/2, cy = box.y + box.height/2;
-  // Wurf 1 (Brix) — danach KEIN Minigame, nächster Spieler
-  await page.touchscreen.tap(cx, cy);
-  await page.waitForTimeout(2500);
-  await page.screenshot({ path: '/opt/data/w1_nach_wurf1.png' });
-  // Wurf 2 (Nixie) — danach Minigame
-  await page.touchscreen.tap(cx, cy);
-  await page.waitForTimeout(2500);
-  await page.screenshot({ path: '/opt/data/w2_nach_wurf2.png' });
+  // Würfeln (fliegender Würfel sollte erscheinen)
+  await page.touchscreen.tap(box.x + box.width/2, box.y + box.height/2);
+  await page.waitForTimeout(600); // während des Flugs
+  await page.screenshot({ path: '/opt/data/feat_dice_flying.png' });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: '/opt/data/feat_after_roll.png' });
   console.log('JS-Fehler:', JSON.stringify(errs));
   await browser.close();
 })();

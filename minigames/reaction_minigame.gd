@@ -3,7 +3,7 @@ extends Minigame
 ## Reaktions-Minispiel: Wer am schnellsten auf das grüne Signal reagiert.
 ## Schnellste Zeit = Platz 1. Headless testbar.
 
-var start_time := 0.0
+var start_time: float = 0.0
 var reaction_times: Dictionary = {}  # player_id -> ms
 
 
@@ -23,7 +23,7 @@ func react(player_id: int) -> void:
 		return
 	if start_time < 0:
 		return  # noch kein Signal
-	var elapsed := Time.get_ticks_msec() - start_time
+	var elapsed: int = Time.get_ticks_msec() - start_time
 	reaction_times[player_id] = elapsed
 	finish_player(player_id)
 
