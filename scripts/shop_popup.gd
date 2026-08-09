@@ -1,9 +1,9 @@
 class_name ShopPopup
 extends Control
 ## Shop-Popup: Schaufenster mit Items/Sternen. Öffnet sich auf Shop-Feldern.
-## signal buy(item_id) — main.gd führt den Kauf aus.
+## signal bought(item_id) — main.gd führt den Kauf aus.
 
-signal buy(item_id: String)
+signal bought(item_id: String)
 signal closed
 
 const ITEMS := {
@@ -87,7 +87,7 @@ func _add_star_row(vbox: VBoxContainer) -> void:
 	row.add_child(lbl)
 	var btn := Button.new()
 	btn.text = "Kaufen"
-	btn.pressed.connect(func(): buy.emit("star"))
+	btn.pressed.connect(func(): bought.emit("star"))
 	row.add_child(btn)
 
 
@@ -101,7 +101,7 @@ func _add_item_row(vbox: VBoxContainer, item_id: String) -> void:
 	row.add_child(lbl)
 	var btn := Button.new()
 	btn.text = "Kaufen"
-	btn.pressed.connect(func(): buy.emit(item_id))
+	btn.pressed.connect(func(): bought.emit(item_id))
 	row.add_child(btn)
 
 

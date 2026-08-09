@@ -71,12 +71,12 @@ func _ready() -> void:
 	add_child(_ui_layer)
 	shop_popup = ShopPopupScript.new()
 	shop_popup.visible = false
-	shop_popup.buy.connect(_on_shop_buy)
+	shop_popup.bought.connect(_on_shop_buy)
 	shop_popup.closed.connect(func(): shop_popup.visible = false)
 	_ui_layer.add_child(shop_popup)
 	backpack_ui = BackpackUIScript.new()
 	backpack_ui.visible = false
-	backpack_ui.use_item.connect(_on_use_item)
+	backpack_ui.item_used.connect(_on_use_item)
 	backpack_ui.closed.connect(func(): backpack_ui.visible = false)
 	_ui_layer.add_child(backpack_ui)
 	_update_status()

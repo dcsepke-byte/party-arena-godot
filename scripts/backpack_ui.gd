@@ -1,9 +1,9 @@
 class_name BackpackUI
 extends Control
 ## Rucksack/Inventar-Overlay: zeigt Items des aktiven Spielers, benutzen per Tap.
-## signal use_item(item_id) — main.gd führt die Aktion aus.
+## signal item_used(item_id) — main.gd führt die Aktion aus.
 
-signal use_item(item_id: String)
+signal item_used(item_id: String)
 signal closed
 
 const ITEM_NAMES := {
@@ -82,5 +82,5 @@ func _refresh() -> void:
 		row.add_child(lbl)
 		var btn := Button.new()
 		btn.text = "Benutzen"
-		btn.pressed.connect(func(): use_item.emit(item_id))
+		btn.pressed.connect(func(): item_used.emit(item_id))
 		row.add_child(btn)
